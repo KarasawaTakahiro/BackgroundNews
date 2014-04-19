@@ -80,6 +80,20 @@ class Main(wx.Frame):
         th.daemon = True
         th.start()
         tm_routine_rss.Start(self.iv_routine_rss)
+        th_log = Thread(target=self.outlog)
+        th_log.daemon = True
+        th_log.start()
+
+    def outlog(self):
+        while True:
+            print "================================================="
+            print "routine Play"
+            print "flag_accept_play:", self.flag_accept_play
+            print "streamState:", self.api.getStreamState()
+            print "stoppedArticle:", self.stoppedArticle
+            print "playingArticle:", self.playingArticle
+            time.sleep(0.1)
+
 
     def routine(self, evt):
         """
@@ -143,22 +157,15 @@ class Main(wx.Frame):
         s = self.api.stream_STOPPED
 
         while self.flag_accept_play:
-
-            print "================================================="
-            print "routine Play"
-            print "flag_accept_play:", self.flag_accept_play
-            print "streamState:", self.api.getStreamState()
-            print "stoppedArticle:", self.stoppedArticle
-            print "playingArticle:", self.playingArticle
-
             self.setArticleNum(self.api.getPlayQueueNum())
 
             if self.checkStreamState((f,)):
                 print "finished"
                 self.api.stop()
                 self.playingArticle = None
+                time.sleep(self.iv_routine_play)
 
-            if self.checkStreamState((w, s)):
+            if self.checkStreamState((s,)):
                 print "stopped and wait"
                 print "replay article because stop button was pressed"
                 self.playingArticle = self.stoppedArticle
@@ -171,10 +178,12 @@ class Main(wx.Frame):
                 print "play next article"
                 try:
                     self.playingArticle = self.api.playNext()
-                    if self.playingArticle == None: continue
-                    self.setArticleTitle(self.playingArticle.title)
-                    self.setArticleNum(self.api.getPlayQueueNum())
-                    print "atricle num is seted"
+                    if self.playingArticle != None:
+                        self.setArticleTitle(self.playingArticle.title)
+                        self.setArticleNum(self.api.getPlayQueueNum())
+                        print "atricle num was seted"
+                    else:
+                        pass
                 except Queue.Empty:
                     #self.notify(0, "there are not next article")
                     print "Queue is empty"
@@ -187,10 +196,6 @@ class Main(wx.Frame):
                 print "playing"
                 time.sleep(0.1)
 
-            if self.checkStreamState((w,)):
-                print "waiting"
-                time.sleep(self.iv_routine_play)
-
             time.sleep(0.1)
 
     def play_start(self):
@@ -200,7 +205,7 @@ class Main(wx.Frame):
 
     def play_stop(self):
         if self.api.getStreamState():
-            self.api.stop()
+            self.api.pause()
             self.stoppedArticle = self.playingArticle
             self.playingArticle = None
 

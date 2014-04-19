@@ -101,7 +101,7 @@ class Speech():
           statecode.append(self.FINISHED)
 
         if self._stopped:
-            statecode.append(self.STOPPPED)
+            statecode.append(self.STOPPED)
 
         return (self.UNKNOWN) if len(statecode) == 0 else tuple(statecode)
 
@@ -124,6 +124,7 @@ class Speech():
 
     def streaming(self):
         self._finished = False
+        self._stopped = False
         data = self.__wavf.readframes(self.par_buffer)
         while data != "":
             self._playing = True
@@ -139,6 +140,7 @@ class Speech():
 
     def stop(self):
         self.flag_stopped_que = True
+        self._finished = False
         time.sleep(2 * float(self.par_buffer) / self.__wavf.getframerate())
         self.stream.stop_stream()
         self.stream.close()
@@ -147,6 +149,10 @@ class Speech():
         self.th.join()
         del self.th
         self.flag_stopped_que = False
+
+    def pause(self):
+        self._stopped = True
+        self.stop()
 
     def stream_is_active(self):
         if self.stream == None:
@@ -228,6 +234,7 @@ class BackgroundNewsApi():
         """
         ret = self._playq.get_nowait()
         self.num_playq -= 1
+        print "getPlayQueue:", ret
         return ret
 
     def getPlayQueueNum(self):
@@ -303,6 +310,9 @@ class BackgroundNewsApi():
 
     def stop(self):
         self.speech.stop()
+
+    def pause(self):
+        self.speech.pause()
 
 if __name__ == "__main__":
     """
