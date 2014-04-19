@@ -130,6 +130,7 @@ class Speech():
             self.stream.write(data)
             data = self.__wavf.readframes(self.par_buffer)
             if self.flag_stopped_que:
+                print "stopped que:", self.flag_stopped_que
                 self.flag_stopped_que = False
                 break
         else:
@@ -145,6 +146,7 @@ class Speech():
         self.__wavf.close()
         self.th.join()
         del self.th
+        self.flag_stopped_que = False
 
     def stream_is_active(self):
         if self.stream == None:
@@ -189,7 +191,7 @@ class BackgroundNewsApi():
     stream_WAIT = 0        # waiting for play
     stream_PLAYING = 1     # is playing now
     stream_FINISHED = 2    # complete playing
-    stream_STOPPED = 3      # play is interrupted
+    stream_STOPPED = 3     # play is interrupted
 
     def __init__(self):
         self._playq = Queue.Queue()  # to play (Article, .wav path)
@@ -267,8 +269,8 @@ class BackgroundNewsApi():
         return playing article
         """
         # check the status of the stream
-        if self.speech.stream_is_active():
-            raise StreamingException
+        #if self.speech.stream_is_active():
+        #    raise StreamingException
         # next call processing
         if callNextWav != None:
             if not os.path.exists(callNextWav):
@@ -290,9 +292,9 @@ class BackgroundNewsApi():
         """
         raise IOError when it not found wavfile.
         """
-        if self.speech.stream_is_active():
-            raise StreamingException
-        elif not os.path.exists(wav):
+        #if self.speech.stream_is_active():
+        #    raise StreamingException
+        if not os.path.exists(wav):
             raise IOError, path
         self.speech.get_stream(wav)
         self.speech.play()

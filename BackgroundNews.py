@@ -91,7 +91,7 @@ class Main(wx.Frame):
                 article = self.__generator_article.next()
                 while True:
                     fname = os.path.join(WAVE_DIR, datetime.datetime.now().strftime(u"%Y%m%d%H%M%S_")
-                                     #+ article.title[:5]
+                                     + article.title[:5]
                                     ) + ".wav"
                     if os.path.exists(fname):
                         time.sleep(0.1)
@@ -154,9 +154,9 @@ class Main(wx.Frame):
             self.setArticleNum(self.api.getPlayQueueNum())
 
             if self.checkStreamState((f,)):
-                print "waiting"
+                print "finished"
+                self.api.stop()
                 self.playingArticle = None
-                time.sleep(self.iv_routine_play)
 
             if self.checkStreamState((w, s)):
                 print "stopped and wait"
@@ -186,6 +186,10 @@ class Main(wx.Frame):
             elif self.checkStreamState((p,)):
                 print "playing"
                 time.sleep(0.1)
+
+            if self.checkStreamState((w,)):
+                print "waiting"
+                time.sleep(self.iv_routine_play)
 
             time.sleep(0.1)
 
