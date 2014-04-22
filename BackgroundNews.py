@@ -150,11 +150,11 @@ class Main(wx.Frame):
         return res
 
     def routinePlay(self):
-        u = self.api.stream_UNKNOWN
-        w = self.api.stream_WAIT
-        p = self.api.stream_PLAYING
-        f = self.api.stream_FINISHED
-        s = self.api.stream_STOPPED
+        u = self.api.UNKNOWN
+        w = self.api.WAIT
+        p = self.api.PLAYING
+        f = self.api.FINISHED
+        s = self.api.STOPPED
 
         while self.flag_accept_play:
             self.setArticleNum(self.api.getPlayQueueNum())

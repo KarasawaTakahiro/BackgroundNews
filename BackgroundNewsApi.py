@@ -192,17 +192,19 @@ class ArticleLibraly():
         """
         pass
 
-class BackgroundNewsApi():
-    stream_UNKNOWN = -1
-    stream_WAIT = 0        # waiting for play
-    stream_PLAYING = 1     # is playing now
-    stream_FINISHED = 2    # complete playing
-    stream_STOPPED = 3     # play is interrupted
+class BackgroundNewsApi(Speech):
+    """
+    UNKNOWN = -1
+    WAIT = 0        # waiting for play
+    PLAYING = 1     # is playing now
+    FINISHED = 2    # complete playing
+    STOPPED = 3     # play is interrupted
+    """
 
     def __init__(self):
+        Speech.__init__(self)
         self._playq = Queue.Queue()  # to play (Article, .wav path)
         self._translateq = Queue.Queue()  # to .wav
-        self.speech = Speech()
 
         self.articles = None
         self.playing = None
@@ -264,21 +266,12 @@ class BackgroundNewsApi():
         """
         return speechgen(string, fname)
 
-    def getStreamState(self):
-        """
-        return
-        """
-        return self.speech.getStreamState()
-
     def playNext(self, callNextWav=None):
         """
         raise Queue.Empry error when self._playq is empty.
         return playing article
         """
         # check the status of the stream
-        #if self.speech.stream_is_active():
-        #    raise StreamingException
-        # next call processing
         if callNextWav != None:
             if not os.path.exists(callNextWav):
                 raise IOError
@@ -299,20 +292,12 @@ class BackgroundNewsApi():
         """
         raise IOError when it not found wavfile.
         """
-        #if self.speech.stream_is_active():
-        #    raise StreamingException
         if not os.path.exists(wav):
             raise IOError, path
-        self.speech.get_stream(wav)
-        self.speech.play()
+        self.get_stream(wav)
+        self.play()
         print "play comp"
-        return self.speech.stream_is_active()
-
-    def stop(self):
-        self.speech.stop()
-
-    def pause(self):
-        self.speech.pause()
+        return self.stream_is_active()
 
 if __name__ == "__main__":
     """
