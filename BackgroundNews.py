@@ -12,7 +12,7 @@ import wx
 
 IMAGE_DIR = "images"
 WAVE_DIR = "articles"
-RSS_URLS = ["https://news.google.com/news/feeds?ned=us&ie=UTF-8&oe=UTF-8&q&output=rss&num=3&hl=ja",
+RSS_URLS = ["https://news.google.com/news/feeds?ned=us&ie=UTF-8&oe=UTF-8&q&output=rss&num=1&hl=ja",
            ]
 
 class Sub(wx.Frame):
@@ -76,36 +76,48 @@ class Main(wx.Frame):
 
         # others
         self.SetStatusText(u"さて、次のニュースです")
-        th = Thread(target=self.routine, kwargs={"evt":None})
-        th.daemon = True
-        th.start()
+
         tm_routine_rss.Start(self.iv_routine_rss)
+
         th_log = Thread(target=self.outlog)
         th_log.daemon = True
         th_log.start()
+
+        th_routine = Thread(target=self.routine)
+        th_routine.daemon = True
+        th_routine.start()
 
     def outlog(self):
         while True:
             print "================================================="
             print "routine Play"
             print "flag_accept_play:", self.flag_accept_play
-            print "streamState:", self.api.getStreamState()
+            print "streamState:", 
+            for i in self.api.getStreamState():
+                print ("WAIT", "PLAYING", "FINISHED", "STOPPED", "UNKNOWN")[i],
+            else: print 
             print "stoppedArticle:", self.stoppedArticle
             print "playingArticle:", self.playingArticle
+            #print "self.stream:", self.api.stream
             time.sleep(0.1)
 
 
-    def routine(self, evt):
+    def routine(self, timeout=3, retry=10):
         """
         """
+        retry_max = retry
+        retry = 0
+
         if self.__generator_article == None:
             self.__generator_article = self.routineRss()
+
         while True:
             try:
                 article = self.__generator_article.next()
+                retry = 0
                 while True:
                     fname = os.path.join(WAVE_DIR, datetime.datetime.now().strftime(u"%Y%m%d%H%M%S_")
-                                     + article.title[:5]
+                                     + article.title[:7]
                                     ) + ".wav"
                     if os.path.exists(fname):
                         time.sleep(0.1)
@@ -113,16 +125,20 @@ class Main(wx.Frame):
                     else: break
                 self.translate(article, fname)
             except StopIteration:
-                time.sleep(1)
+                retry += 1
+                time.sleep(timeout)
+                if retry > retry_max:
+                    return
 
     def routineRss(self):
         """
-        get articles from rss
+        get articles by rss
         """
         self.setPubDate(datetime.datetime.now())
         for url in RSS_URLS:
             for article in self.api.parse(url):
                 print "rssroutine"
+                print article
                 yield article
 
     def translate(self, article, fname):
@@ -161,7 +177,7 @@ class Main(wx.Frame):
 
             if self.checkStreamState((f,)):
                 print "finished"
-                self.api.stop()
+                self.api.close_stream()
                 self.playingArticle = None
                 time.sleep(self.iv_routine_play)
 
@@ -173,7 +189,7 @@ class Main(wx.Frame):
                 self.api.play(self.playingArticle.wav)
                 self.setArticleTitle(self.playingArticle.title)
             elif self.checkStreamState((w,)):
-                print "finished and wait"
+                print "wait"
                 # play next article
                 print "play next article"
                 try:
@@ -181,9 +197,6 @@ class Main(wx.Frame):
                     if self.playingArticle != None:
                         self.setArticleTitle(self.playingArticle.title)
                         self.setArticleNum(self.api.getPlayQueueNum())
-                        print "atricle num was seted"
-                    else:
-                        pass
                 except Queue.Empty:
                     #self.notify(0, "there are not next article")
                     print "Queue is empty"
@@ -194,7 +207,6 @@ class Main(wx.Frame):
                     #self.notify(1, "not found call next wav")
             elif self.checkStreamState((p,)):
                 print "playing"
-                time.sleep(0.1)
 
             time.sleep(0.1)
 
@@ -204,8 +216,10 @@ class Main(wx.Frame):
         th.start()
 
     def play_stop(self):
-        if self.api.getStreamState():
-            self.api.pause()
+        if self.checkStreamState((self.api.PLAYING,)):
+            try:
+                self.api.stop()
+            except api.StreamingException, e: pass
             self.stoppedArticle = self.playingArticle
             self.playingArticle = None
 

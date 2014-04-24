@@ -13,19 +13,16 @@ import wave
 from subprocess import Popen, PIPE
 from threading import Thread
 
-class HtmlParser(HTMLParser.HTMLParser):
-    string = ""
+class StreamingException(BaseException): pass
 
-    def reflesh(self):
-        self.string = ""
-
-    def get_data(self):
-        string = self.string
-        self.string = ""
-        return string
-
-    def handle_data(self, data):
-        self.string += data
+def speechgen(string, wavfname, koefname=""):
+    if not os.path.exists("speechgen"):
+        raise IOError
+    print "run speech gen", wavfname
+    #print string
+    popen = Popen(["./speechgen", string, wavfname, koefname], stdout=PIPE, stderr=PIPE)
+    fincode = popen.wait()
+    return fincode
 
 class Article():
     title = u""
@@ -42,6 +39,20 @@ class Article():
         self.pubDate = pubDate
         self.description = description
         self.wav = wav
+
+class HtmlParser(HTMLParser.HTMLParser):
+    string = ""
+
+    def reflesh(self):
+        self.string = ""
+
+    def get_data(self):
+        string = self.string
+        self.string = ""
+        return string
+
+    def handle_data(self, data):
+        self.string += data
 
 class FeedParser():
     def __init__(self):
@@ -87,7 +98,6 @@ class Speech():
     def __init__(self):
         self.pa = pyaudio.PyAudio()
         self.stream = None
-        self.__wavf = None
 
     def getStreamState(self):
         statecode = []
@@ -107,6 +117,10 @@ class Speech():
 
 
     def get_stream(self, wav, par_buffer=1024):
+        """
+        self.__wavf is define when streaming start.
+        self.__wavf will be deleted when streaming finish.
+        """
         self.__wavf = wavf = wave.open(wav, "rb")
         self.stream = self.pa.open(format = self.pa.get_format_from_width(wavf.getsampwidth()),
                 channels = wavf.getnchannels(),
@@ -114,20 +128,65 @@ class Speech():
                 output = True
                 )
         self.par_buffer = par_buffer
-        return self.stream
+        #return self.stream
 
-    def play(self):
-        if not hasattr(self, "th"):
-            self.th = Thread(target=self.streaming)
-            self.th.daemon = True
-            self.th.start()
+    def close_stream(self):
+        """
+        一時停止 == 停止
+        streamは停止時に閉じても問題ない
+
+        close stream
+        """
+        if not hasattr(self, "stream"):
+            raise StreamingException()
+
+        self.flag_stopped_que = True
+        time.sleep(2 * float(self.par_buffer) / self.__wavf.getframerate())
+        self.stream.stop_stream()
+        self.stream.close()
+        self.__wavf.close()
+        self.th_stream.join()
+        del self.stream
+        self._playing = False
+        self._finished = False
+        self.flag_stopped_que = False
+
+    def stop(self):
+        """
+        再生を（一時）停止する
+        stop (pause) playing
+        """
+        if not hasattr(self, "stream"):
+            raise StreamingException()
+
+        self._stopped = True
+        self.close_stream()
+
+    def close(self):
+        """
+        close self
+        """
+        self.pa.terminate()
+
+    def start_streaming(self):
+        print "start_streaming is called"
+        if hasattr(self, "stream"):
+            self.th_stream = Thread(target=self.streaming)
+            self.th_stream.daemon = True
+            self.th_stream.start()
+            self._playing = True
 
     def streaming(self):
+        print "streaming is called"
+        if not hasattr(self, "stream"):
+            raise StreamingException()
+
+        # flag
         self._finished = False
         self._stopped = False
+
         data = self.__wavf.readframes(self.par_buffer)
         while data != "":
-            self._playing = True
             self.stream.write(data)
             data = self.__wavf.readframes(self.par_buffer)
             if self.flag_stopped_que:
@@ -135,48 +194,16 @@ class Speech():
                 self.flag_stopped_que = False
                 break
         else:
-            self._playing = False
             self._finished = True
 
-    def stop(self):
-        self.flag_stopped_que = True
-        self._finished = False
-        time.sleep(2 * float(self.par_buffer) / self.__wavf.getframerate())
-        self.stream.stop_stream()
-        self.stream.close()
-        self.stream = None
-        self.__wavf.close()
-        self.th.join()
-        del self.th
-        self.flag_stopped_que = False
-
-    def pause(self):
-        self._stopped = True
-        self.stop()
-
     def stream_is_active(self):
-        if self.stream == None:
+        if not hasattr(self, "stream"):
+            return False
+        elif self.stream == None:
             return False
         else:
             return self.stream.is_active()
 
-    def close(self):
-        if(not self.stream.is_stopped()):
-            self.stream.stop_stream()
-        self.stream.close()
-        self.pa.terminate()
-
-
-def speechgen(string, wavfname, koefname=""):
-    if not os.path.exists("speechgen"):
-        raise IOError
-    print "run speech gen", wavfname
-    #print string
-    popen = Popen(["./speechgen", string, wavfname, koefname], stdout=PIPE, stderr=PIPE)
-    fincode = popen.wait()
-    return fincode
-
-class StreamingException(BaseException): pass
 
 class ArticleLibraly():
     """
@@ -295,8 +322,8 @@ class BackgroundNewsApi(Speech):
         if not os.path.exists(wav):
             raise IOError, path
         self.get_stream(wav)
-        self.play()
-        print "play comp"
+        self.start_streaming()
+        print "play complete"
         return self.stream_is_active()
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 *.ko
 *.obj
 *.elf
+
 *.pyc
 
 # Libraries
@@ -23,5 +24,9 @@
 *.x86_64
 *.hex
 
-# sound files
+# others
+*bak
 *.wav
+*.zip
+*.asta
+*.asta.bak
